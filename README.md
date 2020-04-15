@@ -10,16 +10,16 @@ SMS also only accepts ASCII characters, so we'll need to encode our bytes as ASC
 use base85 encoding which converts every 4 bytes into 5 ASCII characters, which leaves us with 97 bytes
 per SMS message.
 
-Header:
+**Header**:
 Each message will have a short header with the following information:  
-1 Byte Protocol Type -- Some constant value  
-2 Byte Version Number -- Major Minor version (0.0 for now)  
-1 Byte Message Type -- Byte representing step in handshake or data message  
-1 Byte message length -- Length of message after header  
+1. 1 Byte Protocol Type -- Some constant value  
+2. 2 Byte Version Number -- Major Minor version (0.0 for now)  
+3. 1 Byte Message Type -- Byte representing step in handshake or data message  
+4. 1 Byte message length -- Length of message after header  
 
 This leaves us with 92 data bytes
 
-Protocol:
+**Protocol**:
 Alice sends two messages with her 1024-bit RSA public key with a SHA1 
     signing from her network provider. Each message has a different
     message type to order them properly as they arrive.
