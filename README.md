@@ -12,10 +12,10 @@ per SMS message.
 
 **Header**:
 Each message will have a short header with the following information:  
-1. 1 Byte Protocol Type -- Some constant value  
-2. 2 Byte Version Number -- Major Minor version (0.0 for now)  
-3. 1 Byte Message Type -- Byte representing step in handshake or data message  
-4. 1 Byte message length -- Length of message after header  
+* 1 Byte Protocol Type -- Some constant value  
+* 2 Byte Version Number -- Major Minor version (0.0 for now)  
+* 1 Byte Message Type -- Byte representing step in handshake or data message  
+* 1 Byte message length -- Length of message after header  
 
 This leaves us with 92 data bytes
 
