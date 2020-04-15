@@ -23,12 +23,8 @@ Protocol:
 Alice sends two messages with her 1024-bit RSA public key with a SHA1 
     signing from her network provider. Each message has a different
     message type to order them properly as they arrive.
-Bob sends two messages with 1. diffie-hellman number encrypted with
-    Alice's public key, and 2. his signed public key
-Alice sends Bob one message with a diffie-hellman number encrypted 
-    with his public key
+Bob sends two messages with   
+1. diffie-hellman number encrypted with Alice's public key, and    
+2. his signed public key  
 
-Alice and Bob use the two parts of the diffie-hellman exchange to 
-    generate a 128-bit AES key with will be used with AES in ECB
-    mode. ECB was chosen instead of CBC so that if any messages
-    are dropped by AES then other messages can still be decrypted.
+Alice sends Bob one message with a diffie-hellman number encrypted with his public key. Alice and Bob use the two parts of the diffie-hellman exchange to generate a 128-bit AES key with will be used with AES in ECB mode. ECB was chosen instead of CBC so that if any messages are dropped by AES then other messages can still be decrypted.
