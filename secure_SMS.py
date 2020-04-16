@@ -1,4 +1,4 @@
-from SMS_handler import SMS_handler, Fake_SMS_handler
+from Twilio_SMS_handler import Twilio_SMS_handler
 from enum import Enum, unique
 
 # See README for protocol explanation

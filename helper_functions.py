@@ -4,6 +4,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import base64
+import re
 
 # Generates a public and private key for RSA encryption/decryption
 def generate_RSA_public_private_pair():
@@ -45,7 +46,6 @@ def public_key_to_bytes(public_key):
         format=serialization.PublicFormat.PKCS1)
 
 
-
 # Returns diffie hellman value and a function
 # to calculate the shared secret from the remote
 # end's diffie hellman value
@@ -74,6 +74,36 @@ def AES_ECB(key):
     cipher = Cipher(algorithms.AES(key), mode=modes.ECB(), backend=default_backend())
     return (lambda plaintext : cipher.encryptor().update(plaintext)), (lambda ciphertext : cipher.decryptor().update(ciphertext))
 
+
+def convert_bytes_to_ascii_bytes(data):
+    '''
+    SMS can only send ASCII bytes, so this will base85 encode all the
+    bytes so they can be sent properly. This will unfortunately take
+    up more space per message. yENC is another format that has more
+    space efficiency, but we'd need to pull in another module for that.
+    '''
+    return base64.b85encode(data)
+
+def convert_ascii_bytes_to_bytes(ascii_data):
+    '''
+    This is the inverse function for convert_bytes_to_ascii_bytes. 
+    Converts base85 encoding to bytes again
+    '''
+    return base64.b85decode(ascii_data)
+
+def format_phone_number(phone_number):
+	#strip all characters out except digits
+	if phone_number is None:
+		return ''
+	ret_val = re.sub('[^0-9]','', phone_number)
+	#if country code is included for USA, remove it
+	if (len(ret_val) == 11) and (ret_val[0] == "1"):
+		ret_val = ret_val[1:]
+	#if phone number is invalid, print an error message and return empty string
+	if (len(ret_val) < 10) and (ret_val != ''):
+		ret_val = ''
+	return ret_val
+
 if __name__ == '__main__':
     pub, priv = generate_RSA_public_private_pair()
     pub_bytes = public_key_to_bytes(pub)
@@ -82,3 +112,10 @@ if __name__ == '__main__':
     pub_new = bytes_to_public_key(pub_bytes)
     pub_bytes_new = public_key_to_bytes(pub)
     assert pub_bytes == pub_bytes_new
+
+    test_bytes = b'Test bytes'
+    encoded = convert_bytes_to_ascii_bytes(test_bytes)
+    decoded = convert_ascii_bytes_to_bytes(encoded)
+    print(encoded)
+    print(decoded)
+    assert test_bytes == decoded
