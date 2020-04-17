@@ -5,6 +5,8 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import base64
 import re
+import time
+import random
 
 # Generates a public and private key for RSA encryption/decryption
 def generate_RSA_public_private_pair():
@@ -45,6 +47,9 @@ def public_key_to_bytes(public_key):
         encoding=serialization.Encoding.DER,
         format=serialization.PublicFormat.PKCS1)
 
+# Generates a random bytes object with the given length        
+def generate_random_bytes(length):
+    return bytes(bytearray(random.getrandbits(8) for _ in range(length)))
 
 # Returns diffie hellman value and a function
 # to calculate the shared secret from the remote
@@ -90,6 +95,32 @@ def convert_ascii_bytes_to_bytes(ascii_data):
     Converts base85 encoding to bytes again
     '''
     return base64.b85decode(ascii_data)
+
+def pack_bytes(parts):
+        ret_val = b''
+        for part in parts:
+            actual_part, num_bytes = part if isinstance(part, tuple) else (part, 1)
+            assert isinstance(num_bytes, int)
+            if isinstance(actual_part, bytes):
+                ret_val += actual_part
+            else:
+                ret_val += int.to_bytes(int(actual_part), num_bytes, 'big')
+        return ret_val 
+
+# converts a list of bytes to a list of ints
+def bytes_to_ints(bytes_list):
+    return [int.from_bytes(part, 'big') for part in bytes_list]
+
+# Uses a loop to make sure that the requested number of bytes are received
+def recvall(SMS_handler, num_bytes, timeout_sec=10):
+    result = b''
+    start = time.time()
+    while len(result) < num_bytes:
+        if (time.time() - start) < timeout_sec:
+            result += SMS_handler.recv(num_bytes - len(result))
+        else:
+            raise TimeoutError
+    return result
 
 def format_phone_number(phone_number):
 	#strip all characters out except digits
