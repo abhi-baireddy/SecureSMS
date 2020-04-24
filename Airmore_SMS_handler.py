@@ -8,7 +8,7 @@ from pyairmore.data.messaging import MessageType
 from pyairmore.services.messaging import MessagingService
 import helper_functions
 from helper_functions import recvall
-
+import re
 
 class Airmore_SMS_handler(object):
     def __init__(self, phone_IP, send_number):
@@ -23,9 +23,11 @@ class Airmore_SMS_handler(object):
         self.__last_received_message = None
         self.__chat_id, self.__last_received_message = self.__get_chat_id_and_last_message()
         self.__buffer = b''
+        self.__regex = re.compile(r'^Sent from your Twilio trial account - ')
 
     def sendall(self, data):
         assert isinstance(data, bytes)
+        print(f'Airmore sendall -- {data}')
         self.__service.send_message(self.__send_number, helper_functions.convert_bytes_to_ascii_bytes(data).decode())
     
     def recv(self, num_bytes=sys.maxsize):
@@ -35,8 +37,10 @@ class Airmore_SMS_handler(object):
             messages = [message for index, message in enumerate(messages) if message not in messages[:index]]  # remove duplicates
             last_message_i = messages.index(last_message)
             for message in messages[last_message_i+1:]:
-                self.__buffer += helper_functions.convert_ascii_bytes_to_bytes(message.content.encode())
-                print(f'Recv adding {helper_functions.convert_ascii_bytes_to_bytes(message.content.encode())}')
+                print(f'Airmore recv -- {message.content.encode()}')
+                if not 'Thanks for the message. Configure your number\'s SMS URL' in message.content:
+                    self.__buffer += helper_functions.convert_ascii_bytes_to_bytes(self.__regex.sub('', message.content).encode())
+                    print(f'Recv adding {helper_functions.convert_ascii_bytes_to_bytes(self.__regex.sub("", message.content).encode())}')
                 self.__last_received_message = message
 
         ret_val = self.__buffer[:min([num_bytes, len(self.__buffer)])]
@@ -63,7 +67,7 @@ class Airmore_SMS_handler(object):
         return chat_id, last_received_message
 
 if __name__ == '__main__':
-    handler1 = Airmore_SMS_handler('192.168.1.16', '8016436371')
+    handler1 = Airmore_SMS_handler('192.168.1.22', '8016436371')
     sleep(2)
     msg1 = f'Testing1{time()}'.encode()
     msg2 = f'Testing1{time() + 1}'.encode()

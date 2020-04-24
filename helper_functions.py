@@ -1,7 +1,8 @@
 from OpenSSL import crypto
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import padding, ec
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 import base64
 import re
@@ -35,6 +36,15 @@ def RSA_decrypt(data, priv_key):
         algorithm=hashes.SHA256(),
         label=None))
 
+def diffie_hellman_public_key_to_bytes(public_key):
+    return public_key.public_bytes(
+        encoding=serialization.Encoding.X962,
+        format=serialization.PublicFormat.CompressedPoint)
+
+def bytes_to_diffie_hellman_public_key(pub_bytes):
+    return ec.EllipticCurvePublicKey\
+        .from_encoded_point(ec.SECP384R1(), pub_bytes)
+
 # Dumps public key as bytes object (140 bytes)
 def bytes_to_public_key(public_key_bytes):
     return serialization.load_der_public_key(
@@ -54,25 +64,10 @@ def generate_random_bytes(length):
 # Returns diffie hellman value and a function
 # to calculate the shared secret from the remote
 # end's diffie hellman value
-def diffie_hellman(S, g, p):
-    def get_bit(bits, n):
-        return 1 if bits & (1 << n) else 0
-
-    def expo(m, d, n):
-        ret_val = 1
-        for bit_i in reversed(range(d.bit_length())):
-            ret_val *= ret_val
-            ret_val = ret_val % n
-            if get_bit(d, bit_i) == 1:
-                ret_val *= m
-                ret_val = ret_val % n
-        return ret_val
-
-    T = expo(g, S, p)
-    def step_2(other_T):
-        shared_secret = expo(other_T, S, p)
-        return shared_secret
-    return T, step_2
+def diffie_hellman():
+    private_key = ec.generate_private_key(
+     ec.SECP384R1(), default_backend())
+    return private_key.public_key(), lambda remote_public_key: private_key.exchange(ec.ECDH(), remote_public_key)
 
 # Creates an encryptor and encryptor for AES in ECB mode
 def AES_ECB(key):
@@ -112,7 +107,7 @@ def bytes_to_ints(bytes_list):
     return [int.from_bytes(part, 'big') for part in bytes_list]
 
 # Uses a loop to make sure that the requested number of bytes are received
-def recvall(SMS_handler, num_bytes, timeout_sec=10):
+def recvall(SMS_handler, num_bytes, timeout_sec=30):
     result = b''
     start = time.time()
     while len(result) < num_bytes:

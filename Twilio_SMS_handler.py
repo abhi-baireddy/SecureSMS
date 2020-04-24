@@ -18,6 +18,7 @@ class Twilio_SMS_handler(object):
         self.__regex = re.compile(r'^Sent from your Twilio trial account - ')
 
     def sendall(self, data):
+        print(f'Twilio sendall -- {data}')
         self.__client.messages.create(
                      body=helper_functions.convert_bytes_to_ascii_bytes(data),
                      from_=self.__this_number,
@@ -32,6 +33,7 @@ class Twilio_SMS_handler(object):
                                                    date_sent_before=current_time,
                                                    date_sent_after=self.__last_time_checked)
             for message in messages:
+                print(f'Twilio recv -- {message.body}')
                 self.__buffer += helper_functions.convert_ascii_bytes_to_bytes(self.__regex.sub('', message.body))
             self.__last_time_checked = current_time
 
