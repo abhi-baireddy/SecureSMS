@@ -2,9 +2,7 @@ from enum import IntEnum, unique
 from time import sleep
 from helper_functions import *
 from Fake_SMS_handler import Fake_SMS_handler
-from Twilio_SMS_handler import Twilio_SMS_handler
 from Airmore_SMS_handler import Airmore_SMS_handler
-import twilio_account_info
 
 # See README for protocol explanation
 
@@ -13,12 +11,12 @@ import twilio_account_info
 
 HEADER_PROTOCOL_TYPE = pack_bytes([(42,1)]) # SecureSMS
 HEADER_VERSION = b'00'
-MAX_MESSAGE_LENGTH = 92
+MAX_MESSAGE_LENGTH = 121
 HEADER_SIZE = 5
 
 def sleep_if_not_fake(handler):
     if not isinstance(handler, Fake_SMS_handler):
-        sleep(8)
+        pass#sleep(20)
 
 @unique
 class Message_type(IntEnum):
@@ -31,6 +29,24 @@ class Message_type(IntEnum):
     ALICE_GB_2 = 6
     DATA = 7
 
+class Secure_SMS_socket_like_interface(object):
+    def __init__(self, sms_handler):
+        self.__handler = sms_handler
+        self.__buffer = b''
+    
+    def sendall(self, data):
+        assert isinstance(data, bytes)
+        self.__handler.send(convert_bytes_to_ascii_bytes(data).decode())
+    
+    def recv(self, length):
+        if length > len(self.__buffer):
+            for message in self.__handler.get_new_messages():
+                self.__buffer += convert_ascii_bytes_to_bytes(message.encode())
+        ret_val = self.__buffer[:min(len(self.__buffer), length)]
+        self.__buffer = self.__buffer[min(len(self.__buffer), length):]
+        return ret_val
+        
+
 class Secure_SMS(object):
     def __init__(self, sms_handler):
         self.__sms_handler = sms_handler
@@ -38,6 +54,7 @@ class Secure_SMS(object):
         self.__remote_public_key = None
         self.__network_public_key = None # TODO
         self.__local_dh_pub_key, self.__shared_secret_generator = diffie_hellman()
+        self.__handshake_messages = [None for _ in range(Message_type.DATA)]
         self.__shared_secret = None
         self.__AES_encrypt = None
         self.__AES_decrypt = None
@@ -55,15 +72,14 @@ class Secure_SMS(object):
         return pub_key_bytes
     
     def bob_receive_alice_public_key(self):
-        header = recvall(self.__sms_handler, HEADER_SIZE)
-        msg_type, length = Secure_SMS.unpack_header(header)
-        assert msg_type == Message_type.ALICE_PUBLIC_KEY_1
-        data_bytes = recvall(self.__sms_handler, length)
+        for _ in range(2):
+            header = recvall(self.__sms_handler, HEADER_SIZE)
+            msg_type, length = Secure_SMS.unpack_header(header)
+            self.__handshake_messages[msg_type] = recvall(self.__sms_handler, length)
 
-        header = recvall(self.__sms_handler, HEADER_SIZE)
-        msg_type, length = Secure_SMS.unpack_header(header)
-        assert msg_type == Message_type.ALICE_PUBLIC_KEY_2
-        data_bytes += recvall(self.__sms_handler, length)
+        assert self.__handshake_messages[Message_type.ALICE_PUBLIC_KEY_1] != None
+        assert self.__handshake_messages[Message_type.ALICE_PUBLIC_KEY_2] != None
+        data_bytes = pack_bytes(self.__handshake_messages[Message_type.ALICE_PUBLIC_KEY_1:Message_type.ALICE_PUBLIC_KEY_2+1])
 
         self.__remote_public_key = bytes_to_public_key(data_bytes)
 
@@ -89,20 +105,15 @@ class Secure_SMS(object):
         return data_bytes
 
     def alice_receive_dh_val_and_bob_public_key(self):
-        header = recvall(self.__sms_handler, HEADER_SIZE)
-        msg_type, length = Secure_SMS.unpack_header(header)
-        assert msg_type == Message_type.BOB_GA_PUBLIC_KEY_1
-        data_bytes = recvall(self.__sms_handler, length)
+        for _ in range(3):
+            header = recvall(self.__sms_handler, HEADER_SIZE)
+            msg_type, length = Secure_SMS.unpack_header(header)
+            self.__handshake_messages[msg_type] = recvall(self.__sms_handler, length)
 
-        header = recvall(self.__sms_handler, HEADER_SIZE)
-        msg_type, length = Secure_SMS.unpack_header(header)
-        assert msg_type == Message_type.BOB_GA_PUBLIC_KEY_2
-        data_bytes += recvall(self.__sms_handler, length)
-
-        header = recvall(self.__sms_handler, HEADER_SIZE)
-        msg_type, length = Secure_SMS.unpack_header(header)
-        assert msg_type == Message_type.BOB_GA_PUBLIC_KEY_3
-        data_bytes += recvall(self.__sms_handler, length)
+        assert self.__handshake_messages[Message_type.BOB_GA_PUBLIC_KEY_1] != None
+        assert self.__handshake_messages[Message_type.BOB_GA_PUBLIC_KEY_2] != None
+        assert self.__handshake_messages[Message_type.BOB_GA_PUBLIC_KEY_3] != None
+        data_bytes = pack_bytes(self.__handshake_messages[Message_type.BOB_GA_PUBLIC_KEY_1:Message_type.BOB_GA_PUBLIC_KEY_3+1])
         
         encrypted_value_length = 128
         self.__remote_diffie_hellman_val = RSA_decrypt(data_bytes[:encrypted_value_length], self.__local_private_key)
@@ -124,15 +135,14 @@ class Secure_SMS(object):
         return data_bytes
 
     def bob_receive_dh_val(self):
-        header = recvall(self.__sms_handler, HEADER_SIZE)
-        msg_type, length = Secure_SMS.unpack_header(header)
-        assert msg_type == Message_type.ALICE_GB_1
-        data_bytes = recvall(self.__sms_handler, length)
+        for _ in range(2):
+            header = recvall(self.__sms_handler, HEADER_SIZE)
+            msg_type, length = Secure_SMS.unpack_header(header)
+            self.__handshake_messages[msg_type] = recvall(self.__sms_handler, length)
 
-        header = recvall(self.__sms_handler, HEADER_SIZE)
-        msg_type, length = Secure_SMS.unpack_header(header)
-        assert msg_type == Message_type.ALICE_GB_2
-        data_bytes += recvall(self.__sms_handler, length)
+        assert self.__handshake_messages[Message_type.ALICE_GB_1] != None
+        assert self.__handshake_messages[Message_type.ALICE_GB_2] != None
+        data_bytes = pack_bytes(self.__handshake_messages[Message_type.ALICE_GB_1:Message_type.ALICE_GB_2+1])
 
         self.__remote_diffie_hellman_val = RSA_decrypt(data_bytes, self.__local_private_key)
         return data_bytes
@@ -172,7 +182,6 @@ class Secure_SMS(object):
         assert byte_list[0] == HEADER_PROTOCOL_TYPE
         assert byte_list[1]+byte_list[2] == HEADER_VERSION
         int_list = bytes_to_ints([byte_list[3], byte_list[4]])
-        print(f'unpacked={int_list}')
         return int_list 
 
 if __name__ == '__main__':
@@ -181,34 +190,43 @@ if __name__ == '__main__':
     assert msg_type == Message_type.ALICE_PUBLIC_KEY_1
     assert length == 16
 
-    #handler1,handler2 = Twilio_SMS_handler.create_SMS_test_connection()
     #handler1, handler2 = Fake_SMS_handler.create_fake_connection()
-    handler1 = Airmore_SMS_handler('192.168.1.22', twilio_account_info.account2_SID_token_number[2])
-    handler2 = Twilio_SMS_handler(twilio_account_info.account2_SID_token_number, 
-                                  '8016436371')
+    handler1, handler2 = Airmore_SMS_handler.create_test_connection()
+
+    handler1, handler2 = Secure_SMS_socket_like_interface(handler1), Secure_SMS_socket_like_interface(handler2)
     alice = Secure_SMS(handler1)
     bob = Secure_SMS(handler2)
     
     sent = alice.alice_send_public_key()
+    print(f'Alice sent public key -- {sent}')
     received = bob.bob_receive_alice_public_key()
+    print(f'Bob received public key -- {received}')
     assert sent == received
 
     sent = bob.bob_send_dh_val_and_public_key()
+    print(f'Bob sent diffie helman value and public key -- {sent}')
     received = alice.alice_receive_dh_val_and_bob_public_key()
+    print(f'Alice received diffie helman value and public key -- {received}')
     assert sent == received
 
     sent = alice.alice_send_dh_val()
+    print(f'Alice sent diffie helman value -- {sent}')
     received = bob.bob_receive_dh_val()
+    print(f'Alice received diffie helman value -- {received}')
     assert sent == received
 
     alice_shared_secret = alice.generate_shared_secret()
+    print(f'Alice generated session key -- {alice_shared_secret}')
     bob_shared_secret = bob.generate_shared_secret()
+    print(f'Bob generated session key -- {bob_shared_secret}')
     assert alice_shared_secret == bob_shared_secret
 
-    message = 'Received and decrypted test message'
+    message = 'Test message'
     alice.send_message(message)
+    print(f'Alice sent message -- {message}')
     received = bob.receive_message()
-    print(received)
+    print(f'Bob received message -- {received}')
+
     assert message == received
     
     print('Passed tests!')

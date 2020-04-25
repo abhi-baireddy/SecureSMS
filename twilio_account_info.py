@@ -1,2 +1,0 @@
-account1_SID_token_number = 'ACb931b9e44a0ad46b6be34ff4040cada0', '169c50a75594e3a7126f4e477e33b5d7', '14783471903'
-account2_SID_token_number = 'ACa19806288e779e6b7e3fe72b16e1a966', 'c1e42957b60409bbd665af6ca7b572f4', '19386668729'

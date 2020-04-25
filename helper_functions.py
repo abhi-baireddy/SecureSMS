@@ -107,7 +107,7 @@ def bytes_to_ints(bytes_list):
     return [int.from_bytes(part, 'big') for part in bytes_list]
 
 # Uses a loop to make sure that the requested number of bytes are received
-def recvall(SMS_handler, num_bytes, timeout_sec=30):
+def recvall(SMS_handler, num_bytes, timeout_sec=45):
     result = b''
     start = time.time()
     while len(result) < num_bytes:
