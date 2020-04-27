@@ -1,0 +1,12 @@
+100 Handshake Attempts and 500 data packets sent
+
+failed_handshakes = 21*
+Average Handshake Time = 20.638565519188024 seconds
+dropped_or_late_data_packets = 0
+
+*Note - Unsure why handshake attempts failed. Either messages were
+dropped, or timeouts occurred. If a timeout occurred, but the message
+came in later, it's possible that an old message disrupted the handshake.
+This is a vulnerability in the current implementation if Trudy can spoof
+messages from Alice or Bob and only desires to disrupt setup of a secure
+channel

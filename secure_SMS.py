@@ -1,4 +1,5 @@
 from enum import IntEnum, unique
+import time
 from time import sleep
 from helper_functions import *
 from Fake_SMS_handler import Fake_SMS_handler
@@ -184,12 +185,7 @@ class Secure_SMS(object):
         int_list = bytes_to_ints([byte_list[3], byte_list[4]])
         return int_list 
 
-if __name__ == '__main__':
-    header = Secure_SMS.create_header(Message_type.ALICE_PUBLIC_KEY_1, 16)
-    msg_type, length = Secure_SMS.unpack_header(header)
-    assert msg_type == Message_type.ALICE_PUBLIC_KEY_1
-    assert length == 16
-
+def run_handshake():
     #handler1, handler2 = Fake_SMS_handler.create_fake_connection()
     handler1, handler2 = Airmore_SMS_handler.create_test_connection()
 
@@ -221,12 +217,31 @@ if __name__ == '__main__':
     print(f'Bob generated session key -- {bob_shared_secret}')
     assert alice_shared_secret == bob_shared_secret
 
-    message = 'Test message'
-    alice.send_message(message)
-    print(f'Alice sent message -- {message}')
-    received = bob.receive_message()
-    print(f'Bob received message -- {received}')
+    return alice, bob
 
-    assert message == received
+if __name__ == '__main__':
+    failed_handshakes = 0
+    total_time = 0
+    number_of_trials = 100
+    for _ in range(number_of_trials):
+        try:
+            start = time.time()
+            alice, bob = run_handshake()
+            total_time += (time.time() - start)
+        except:
+            failed_handshakes += 1
+
+    print(f'failed_handshakes = {failed_handshakes}')
+    print(f'Average Handshake Time = {total_time/(number_of_trials - failed_handshakes)} seconds')
+
+    dropped_or_late_data_packets = 0
+    message = 'Test Message'
+    for i in range(5*number_of_trials):
+        alice.send_message(message)
+        try:
+            received = bob.receive_message()
+        except:
+            dropped_or_late_data_packets += 1
+
     
-    print('Passed tests!')
+    print(f'dropped_or_late_data_packets = {dropped_or_late_data_packets}')
