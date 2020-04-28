@@ -74,6 +74,10 @@ def AES_ECB(key):
     cipher = Cipher(algorithms.AES(key), mode=modes.ECB(), backend=default_backend())
     return (lambda plaintext : cipher.encryptor().update(plaintext)), (lambda ciphertext : cipher.decryptor().update(ciphertext))
 
+def AES_CBC(key, init_vec):
+    cipher = Cipher(algorithms.AES(key), mode=modes.CBC(init_vec), backend=default_backend())
+    return (lambda plaintext : cipher.encryptor().update(plaintext)), (lambda ciphertext : cipher.decryptor().update(ciphertext))
+
 
 def convert_bytes_to_ascii_bytes(data):
     '''
@@ -92,15 +96,15 @@ def convert_ascii_bytes_to_bytes(ascii_data):
     return base64.b85decode(ascii_data)
 
 def pack_bytes(parts):
-        ret_val = b''
-        for part in parts:
-            actual_part, num_bytes = part if isinstance(part, tuple) else (part, 1)
-            assert isinstance(num_bytes, int)
-            if isinstance(actual_part, bytes):
-                ret_val += actual_part
-            else:
-                ret_val += int.to_bytes(int(actual_part), num_bytes, 'big')
-        return ret_val 
+    ret_val = b''
+    for part in parts:
+        actual_part, num_bytes = part if isinstance(part, tuple) else (part, 1)
+        assert isinstance(num_bytes, int)
+        if isinstance(actual_part, bytes):
+            ret_val += actual_part
+        else:
+            ret_val += int.to_bytes(int(actual_part), num_bytes, 'big')
+    return ret_val 
 
 # converts a list of bytes to a list of ints
 def bytes_to_ints(bytes_list):
@@ -130,6 +134,32 @@ def format_phone_number(phone_number):
 		ret_val = ''
 	return ret_val
 
+# Returns SHA1 hash of bytes object
+def SHA1(data):
+    digest = hashes.Hash(hashes.SHA1(), backend=default_backend())
+    digest.update(data)
+    return digest.finalize()
+
+def RSA_sign(data, priv_key):
+    return data + priv_key.sign(
+        data,
+        padding.PSS(
+            mgf=padding.MGF1(hashes.SHA1()),
+            salt_length=padding.PSS.MAX_LENGTH),
+        hashes.SHA1())
+
+def RSA_verify(data_and_signature, pub_key):
+    data = data_and_signature[:-128]
+    sig = data_and_signature[-128:]
+    pub_key.verify(
+        sig,
+        data,
+        padding.PSS(
+            mgf=padding.MGF1(hashes.SHA1()),
+            salt_length=padding.PSS.MAX_LENGTH),
+        hashes.SHA1())
+    return data
+
 if __name__ == '__main__':
     pub, priv = generate_RSA_public_private_pair()
     pub_bytes = public_key_to_bytes(pub)
@@ -145,3 +175,8 @@ if __name__ == '__main__':
     print(encoded)
     print(decoded)
     assert test_bytes == decoded
+
+    signed_bytes = RSA_sign(pub_bytes, priv)
+    unsigned = RSA_verify(signed_bytes, pub)
+    assert unsigned == pub_bytes
+
